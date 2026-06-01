@@ -1,0 +1,49 @@
+{
+  "appName": "MsouWout",
+  "subtitle": "Haiti's Safe Ride & Delivery",
+  "bundleId": "com.msouwout.app",
+  "version": "1.0.0",
+  "buildNumber": "1",
+  "category": "Travel",
+  "secondaryCategory": "Lifestyle",
+  "contentRating": "4+",
+  "languages": ["en-US", "fr-FR"],
+
+  "description": {
+    "en-US": "MsouWout is Haiti's trusted ride-hailing and delivery service. Get safe, reliable rides across Port-au-Prince and beyond with GPS tracking, verified drivers, and transparent pricing.\n\nKey Features:\n- Request rides instantly (Moto or Car)\n- Real-time GPS tracking with live driver location\n- Transparent pricing with no hidden fees\n- Verified and vetted drivers\n- A/C option for car rides\n- Medical protection (DASH partnership)\n- In-app messaging with your driver\n- Emergency SOS button\n- Zone-based safety system\n- Logistics & freight delivery\n- Available in Kreyol, French, English, and Spanish\n\nMsouWout puts your safety first. Every driver is verified, every ride is tracked, and every trip is protected. Download now and experience the difference.",
+    "fr-FR": "MsouWout est le service de transport et de livraison de confiance en Haiti. Obtenez des trajets surs et fiables a travers Port-au-Prince et au-dela avec suivi GPS, chauffeurs verifies et tarification transparente.\n\nCaracteristiques principales:\n- Demandez des trajets instantanement (Moto ou Voiture)\n- Suivi GPS en temps reel\n- Tarification transparente sans frais caches\n- Chauffeurs verifies\n- Option climatisation pour les voitures\n- Protection medicale (partenariat DASH)\n- Messagerie integree avec votre chauffeur\n- Bouton SOS d'urgence\n- Systeme de securite par zones\n- Logistique et livraison de fret\n- Disponible en Kreyol, Francais, Anglais et Espagnol"
+  },
+
+  "keywords": {
+    "en-US": "ride,taxi,haiti,delivery,transport,moto,driver,safe,port-au-prince,logistics",
+    "fr-FR": "taxi,haiti,livraison,transport,moto,chauffeur,securite,port-au-prince,logistique"
+  },
+
+  "screenshots_needed": [
+    "6.7 inch (iPhone 15 Pro Max) - 1290x2796",
+    "6.5 inch (iPhone 14 Plus) - 1284x2778",
+    "5.5 inch (iPhone 8 Plus) - 1242x2208",
+    "12.9 inch (iPad Pro) - 2048x2732"
+  ],
+
+  "screenshots_scenes": [
+    "Home screen with ride request form",
+    "Vehicle selection (Moto vs Car with A/C toggle)",
+    "Live tracking with driver on map",
+    "Ride confirmation with pricing breakdown",
+    "Driver registration page",
+    "Logistics freight board"
+  ],
+
+  "permissions_usage_descriptions": {
+    "NSLocationWhenInUseUsageDescription": "MsouWout needs your location to find rides near you and show your pickup point to drivers.",
+    "NSLocationAlwaysUsageDescription": "MsouWout uses your location to track your ride in real-time and ensure driver safety.",
+    "NSCameraUsageDescription": "MsouWout needs camera access for driver vehicle condition photos during registration.",
+    "NSMicrophoneUsageDescription": "MsouWout needs microphone access for vehicle condition video uploads during driver registration.",
+    "NSPhotoLibraryUsageDescription": "MsouWout needs photo library access to upload driver documents and vehicle photos."
+  },
+
+  "privacy_url": "https://msouwout.com/privacy.html",
+  "support_url": "https://msouwout.com",
+  "marketing_url": "https://msouwout.com"
+}
