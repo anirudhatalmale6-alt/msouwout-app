@@ -45,5 +45,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MsouWout needs your location to find rides near you and show your pickup point to drivers.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>MsouWout uses your location to track your ride in real-time and ensure driver safety.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>MsouWout needs camera access for driver vehicle condition photos during registration.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MsouWout needs microphone access for vehicle condition video uploads during driver registration.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MsouWout needs photo library access to upload driver documents and vehicle photos.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
