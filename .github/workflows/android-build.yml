@@ -62,17 +62,16 @@ jobs:
           PROPS
           fi
 
-      - name: Build Android AAB
+      - name: Build Android
         working-directory: android
         run: |
           chmod +x gradlew
+          ./gradlew assembleRelease
           if [ -f app/keystore.properties ]; then
             ./gradlew bundleRelease
-          else
-            ./gradlew assembleRelease
           fi
 
-      - name: Upload AAB artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: msouwout-android-${{ github.run_number }}
