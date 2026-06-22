@@ -3,8 +3,6 @@ default_platform(:ios)
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
-    setup_ci
-
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
       issuer_id: ENV["ASC_ISSUER_ID"],
@@ -12,20 +10,6 @@ platform :ios do
       is_key_content_base64: true,
       in_house: false
     )
-
-    # Import certificate
-    import_certificate(
-      certificate_path: ENV["CERT_PATH"],
-      certificate_password: ENV["CERT_PASSWORD"],
-      keychain_name: ENV["KEYCHAIN_NAME"] || "login.keychain",
-      keychain_password: ENV["KEYCHAIN_PASSWORD"] || ""
-    )
-
-    # Install provisioning profile
-    install_provisioning_profile(path: ENV["PROFILE_PATH"])
-
-    # Get the UUID of installed profile
-    profile_uuid = lane_context[SharedValues::SIGH_UDID] || ENV["PROFILE_UUID"]
 
     update_code_signing_settings(
       use_automatic_signing: false,
