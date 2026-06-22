@@ -22,10 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Clone MsouWout website
-        uses: actions/checkout@v4
-        with:
-          repository: anirudhatalmale6-alt/msouwout
-          path: ../msouwout-site
+        run: git clone --depth 1 https://github.com/anirudhatalmale6-alt/msouwout.git ../msouwout-site
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
