@@ -22,7 +22,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.msouwout.app"
+        applicationId "com.haitibiznis.msouwout"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
