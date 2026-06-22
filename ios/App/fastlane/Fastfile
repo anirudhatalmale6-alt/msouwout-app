@@ -1,8 +1,10 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "Build and upload to App Store Connect"
-  lane :release do
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    setup_ci
+
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
       issuer_id: ENV["ASC_ISSUER_ID"],
@@ -11,81 +13,65 @@ platform :ios do
       in_house: false
     )
 
-    # Create app on App Store Connect if it doesn't exist
-    begin
-      create_app_online(
-        api_key: api_key,
-        username: ENV["APPLE_ID"] || "",
-        app_identifier: "com.msouwout.app",
-        app_name: "MsouWout",
-        language: "English",
-        app_version: "1.0.0",
-        sku: "com.msouwout.app.100",
-        platform: "ios"
-      )
-    rescue => e
-      UI.message("App may already exist: #{e.message}")
-    end
-
-    # Manage signing
-    sync_code_signing(
-      type: "appstore",
-      api_key: api_key,
-      app_identifier: "com.msouwout.app",
-      readonly: false
+    # Import certificate
+    import_certificate(
+      certificate_path: ENV["CERT_PATH"],
+      certificate_password: ENV["CERT_PASSWORD"],
+      keychain_name: ENV["KEYCHAIN_NAME"] || "login.keychain",
+      keychain_password: ENV["KEYCHAIN_PASSWORD"] || ""
     )
 
-    # Build
+    # Install provisioning profile
+    install_provisioning_profile(path: ENV["PROFILE_PATH"])
+
+    # Get the UUID of installed profile
+    profile_uuid = lane_context[SharedValues::SIGH_UDID] || ENV["PROFILE_UUID"]
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "App.xcodeproj",
+      team_id: ENV["TEAM_ID"],
+      bundle_identifier: "com.msouwout.app",
+      profile_name: "MsouWout AppStore",
+      code_sign_identity: "iPhone Distribution"
+    )
+
     build_app(
       workspace: "App.xcworkspace",
       scheme: "App",
       export_method: "app-store",
+      clean: true,
       export_options: {
+        signingStyle: "manual",
         provisioningProfiles: {
-          "com.msouwout.app" => "match AppStore com.msouwout.app"
+          "com.msouwout.app" => "MsouWout AppStore"
         }
       }
-    )
-
-    # Upload to App Store Connect
-    upload_to_app_store(
-      api_key: api_key,
-      skip_screenshots: true,
-      skip_metadata: false,
-      force: true,
-      submit_for_review: false,
-      automatic_release: false,
-      app_identifier: "com.msouwout.app",
-      app_version: "1.0.0"
-    )
-  end
-
-  desc "Build and upload to TestFlight"
-  lane :beta do
-    api_key = app_store_connect_api_key(
-      key_id: ENV["ASC_KEY_ID"],
-      issuer_id: ENV["ASC_ISSUER_ID"],
-      key_content: ENV["ASC_KEY_CONTENT"],
-      is_key_content_base64: true,
-      in_house: false
-    )
-
-    sync_code_signing(
-      type: "appstore",
-      api_key: api_key,
-      app_identifier: "com.msouwout.app",
-      readonly: false
-    )
-
-    build_app(
-      workspace: "App.xcworkspace",
-      scheme: "App",
-      export_method: "app-store"
     )
 
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Build and upload for App Store release"
+  lane :release do
+    beta
+
+    upload_to_app_store(
+      api_key: app_store_connect_api_key(
+        key_id: ENV["ASC_KEY_ID"],
+        issuer_id: ENV["ASC_ISSUER_ID"],
+        key_content: ENV["ASC_KEY_CONTENT"],
+        is_key_content_base64: true,
+        in_house: false
+      ),
+      skip_screenshots: true,
+      skip_metadata: true,
+      force: true,
+      submit_for_review: false,
+      automatic_release: false
     )
   end
 end
