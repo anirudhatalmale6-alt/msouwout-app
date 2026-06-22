@@ -33,9 +33,6 @@
     },
     "Geolocation": {
       "permissions": ["location"]
-    },
-    "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "alert"]
     }
   }
 }
