@@ -3,8 +3,8 @@
   "appName": "MsouWout",
   "webDir": "www",
   "server": {
-    "url": "https://msouwout.com",
-    "cleartext": false
+    "cleartext": false,
+    "allowNavigation": ["msouwout.com", "*.msouwout.com", "wa.me", "*.whatsapp.com", "maps.google.com", "*.googleapis.com"]
   },
   "ios": {
     "contentInset": "automatic",
