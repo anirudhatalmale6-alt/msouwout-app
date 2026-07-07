@@ -300,6 +300,67 @@
   }
 
   // ═══════════════════════════════════════════
+  // LINK & FORM GUARD
+  // Keep all sign-in / registration inside the app.
+  // External web links open in an in-app browser (SFSafariViewController
+  // on iOS) instead of ejecting the user to the default browser — this is
+  // required by App Store Review Guideline 4.0 (Design).
+  // ═══════════════════════════════════════════
+  function isExternalHttp(url) {
+    try {
+      var u = new URL(url, window.location.href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+      // Same origin as the bundled app => internal, allow normal navigation
+      return u.host !== window.location.host;
+    } catch (e) { return false; }
+  }
+
+  // Messaging / phone / map deep-links that should open their native app
+  function isSystemHandoff(url) {
+    return /^(tel:|mailto:|sms:)/i.test(url) ||
+           /(^|\.)wa\.me$/i.test(hostOf(url)) ||
+           /(^|\.)whatsapp\.com$/i.test(hostOf(url)) ||
+           /(^|\.)maps\.google\.com$/i.test(hostOf(url));
+  }
+  function hostOf(url) {
+    try { return new URL(url, window.location.href).host; } catch (e) { return ''; }
+  }
+
+  function openInApp(url) {
+    if (Capacitor.Plugins.Browser) {
+      Capacitor.Plugins.Browser.open({ url: url, presentationStyle: 'popover' });
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+  function openSystem(url) {
+    // Opens the associated native app (WhatsApp, Phone, Mail, Maps)
+    window.open(url, '_system');
+  }
+
+  function initLinkGuard() {
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (!href || href.charAt(0) === '#') return;
+
+      if (/^(tel:|mailto:|sms:)/i.test(href)) return; // let OS handle
+
+      if (isSystemHandoff(href)) {
+        e.preventDefault();
+        openSystem(href);
+        return;
+      }
+      if (isExternalHttp(href)) {
+        e.preventDefault();
+        openInApp(href);
+      }
+      // relative / same-host links: allow normal in-app navigation
+    }, true);
+  }
+
+  // ═══════════════════════════════════════════
   // PAGE TRANSITIONS
   // ═══════════════════════════════════════════
   function initPageTransitions() {
@@ -316,6 +377,7 @@
     initNativeShare();
     initNetworkStatus();
     initPageTransitions();
+    initLinkGuard();
   }
 
   if (document.readyState === 'loading') {
