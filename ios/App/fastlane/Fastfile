@@ -51,6 +51,7 @@ platform :ios do
         is_key_content_base64: true,
         in_house: false
       ),
+      skip_binary_upload: true,
       skip_screenshots: true,
       skip_metadata: true,
       force: true,
