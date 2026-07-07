@@ -59,4 +59,54 @@ platform :ios do
       automatic_release: false
     )
   end
+
+  desc "Attach an already-uploaded build, set App Review Information, and submit for review"
+  lane :submit do
+    review_notes = <<~NOTES
+      MsouWout serves riders, drivers, and cargo/logistics shippers in Haiti. All sign-in and registration now happen INSIDE the app.
+
+      Open the logins by tapping the "Konekte / Login" button at the top right of the home screen, then choose an account type:
+
+      1) CUSTOMER ("Kliyan / Pasaje"): phone 0000 0000 -> shows ride history and an in-app "Delete my account" option.
+      2) DRIVER ("Chofe"): phone 0000 0000, PIN 0000 -> shows the driver dashboard, verified status, ride history, and "Delete my account".
+      3) LOGISTICS ("Logistics"): shows live cargo loads. Tap "Track Shipment" and enter code MW-DEMO for live map tracking.
+
+      The Sign-In field provided is the driver demo (0000 0000 / 0000). Ride requests are finalized via a WhatsApp handoff, which is standard for this market. Thank you for the review.
+    NOTES
+
+    upload_to_app_store(
+      api_key: app_store_connect_api_key(
+        key_id: ENV["ASC_KEY_ID"],
+        issuer_id: ENV["ASC_ISSUER_ID"],
+        key_content: ENV["ASC_KEY_CONTENT"],
+        is_key_content_base64: true,
+        in_house: false
+      ),
+      app_identifier: "com.msouwout.app",
+      app_version: "1.0",
+      build_number: ENV["SUBMIT_BUILD"] || "7",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      force: true,
+      submit_for_review: true,
+      automatic_release: true,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        add_id_info_uses_idfa: false,
+        content_rights_contains_third_party_content: false
+      },
+      app_review_information: {
+        first_name: "Jeffery",
+        last_name: "Boyard",
+        phone_number: "+50946859702",
+        email_address: "myplopplop69@gmail.com",
+        demo_user: "0000 0000",
+        demo_password: "0000",
+        notes: review_notes
+      }
+    )
+  end
 end
