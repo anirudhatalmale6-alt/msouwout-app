@@ -15,7 +15,14 @@ count as tested.** Compiling is not testing.
       24 (7.0), 28 (9), 30 (11), 33 (13), 34 (14), 35 (15).
       This installs the APK, grants every runtime permission, launches the app,
       and fails on crash / early death / white screen.
+- [ ] `iOS Smoke Test` workflow green on iPhone 16 Pro, iPhone 15 and iPhone SE.
+      Same idea: it opens the app on a simulator and fails on a crash or a
+      white screen.
 - [ ] `Android Build` workflow green, APK **and** AAB produced and signed.
+
+Reading the results: for a `workflow_dispatch` run, `gh run list` prints the
+**branch head** SHA, not the ref that was checked out. Open the run and read the
+"Checkout" step before concluding that a commit is broken.
 
 If the smoke test is red on even one API level, the build does not ship. Do not
 "fix it in the next one."
@@ -88,5 +95,7 @@ Every bug that reached the client goes here, with the check that now prevents it
 |------|-----|----------------|----------|
 | 2026-07-09 | Crash on launch, all Android ≤12 and any Android 13+ user who allowed notifications (1.1.3) | Build was never launched on an Android device before shipping. Compiling was mistaken for testing. | §1 smoke test on six API levels, permissions pre-granted |
 | 2026-07-09 | GPS never worked on tracking/logistics screens | Assumed the Geolocation plugin declared its own permissions. It ships an empty manifest. | §2 permission audit against bundled plugins |
+| 2026-07-09 | msouwout-backend down; the client found it, not us | Nothing was monitoring anything | `msouwout-uptime` repo: probes every 15 min, opens an issue on outage |
+| 2026-07-09 | The new uptime monitor reported a green run during a real outage | `script \| tee` returns tee's exit code, hiding the failure | `set -o pipefail` in any workflow step that pipes a failing script |
 | 2026-07-07 | Apple 4.0: "Become a Driver" opened Safari | External links not checked before submitting | §3 in-app link check |
 | 2026-07-06 | Apple 2.1: reviewer had no accounts to log in with | Demo credentials never provided | §4 demo credentials verified on the submitted build |
