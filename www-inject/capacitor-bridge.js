@@ -62,34 +62,6 @@
     };
   }
 
-  // Push Notifications
-  if (Capacitor.Plugins.PushNotifications) {
-    var PushNotifications = Capacitor.Plugins.PushNotifications;
-
-    PushNotifications.requestPermissions().then(function(result) {
-      if (result.receive === 'granted') {
-        PushNotifications.register();
-      }
-    });
-
-    PushNotifications.addListener('registration', function(token) {
-      console.log('[MsouWout] Push token:', token.value);
-      localStorage.setItem('mw_push_token', token.value);
-    });
-
-    PushNotifications.addListener('pushNotificationReceived', function(notification) {
-      console.log('[MsouWout] Push received:', notification);
-    });
-
-    PushNotifications.addListener('pushNotificationActionPerformed', function(notification) {
-      console.log('[MsouWout] Push action:', notification);
-      var data = notification.notification.data;
-      if (data && data.url) {
-        window.location.href = data.url;
-      }
-    });
-  }
-
   // Handle hardware back button on Android
   if (Capacitor.Plugins.App) {
     Capacitor.Plugins.App.addListener('backButton', function(data) {
