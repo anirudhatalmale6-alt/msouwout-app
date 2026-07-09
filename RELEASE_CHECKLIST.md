@@ -97,5 +97,7 @@ Every bug that reached the client goes here, with the check that now prevents it
 | 2026-07-09 | GPS never worked on tracking/logistics screens | Assumed the Geolocation plugin declared its own permissions. It ships an empty manifest. | §2 permission audit against bundled plugins |
 | 2026-07-09 | msouwout-backend down; the client found it, not us | Nothing was monitoring anything | `msouwout-uptime` repo: probes every 15 min, opens an issue on outage |
 | 2026-07-09 | The new uptime monitor reported a green run during a real outage | `script \| tee` returns tee's exit code, hiding the failure | `set -o pipefail` in any workflow step that pipes a failing script |
+| 2026-07-09 | Backend down for weeks: Render deleted the free Postgres 30 days after creation | Nothing checked that the database still existed | Paid DB plan in `render.yaml`; deploy gate asserts `/api/health` reports `db: true` |
+| 2026-07-09 | Five commits, incl. a production fix, never deployed | Render's dashboard claimed "Auto-Deploy: yes" while receiving no push events | `deploy.yml` triggers the deploy from CI and fails if it doesn't reach `live` |
 | 2026-07-07 | Apple 4.0: "Become a Driver" opened Safari | External links not checked before submitting | §3 in-app link check |
 | 2026-07-06 | Apple 2.1: reviewer had no accounts to log in with | Demo credentials never provided | §4 demo credentials verified on the submitted build |
