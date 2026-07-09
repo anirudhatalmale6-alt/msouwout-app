@@ -86,16 +86,14 @@ if ls "$HOME/Library/Logs/DiagnosticReports/"*.ips >/dev/null 2>&1; then
   fi
 fi
 
-# 3. Did the WebView actually load, or are we staring at a white screen?
-if grep -qiE "Capacitor|WKWebView|loaded the app" sim-log.txt 2>/dev/null; then
-  echo "    WebView loaded"
-else
-  echo "    WARNING: no WebView marker in the simulator log"
-fi
+# 3. Screenshot what the reviewer would see, and assert it is not a blank screen.
+#    Capacitor's own logs don't reliably reach os_log, so the pixels are the
+#    only trustworthy evidence that the WebView rendered.
+SHOT="screenshot-${DEVICE// /-}.png"
+xcrun simctl io "$UDID" screenshot "$SHOT" >/dev/null 2>&1 || fail "could not take a screenshot"
+echo "    screenshot saved: $SHOT"
 
-# 4. Take a screenshot so a human can see what the reviewer would see.
-xcrun simctl io "$UDID" screenshot "screenshot-${DEVICE// /-}.png" >/dev/null 2>&1 \
-  && echo "    screenshot saved"
+python3 "$(dirname "$0")/assert-not-blank.py" "$SHOT" || fail "the app rendered a blank screen"
 
 echo
 echo "SMOKE TEST PASSED on $DEVICE"

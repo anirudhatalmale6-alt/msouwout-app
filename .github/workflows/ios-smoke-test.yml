@@ -61,6 +61,10 @@ jobs:
         working-directory: ios/App
         run: pod install --repo-update
 
+      # Used by scripts/assert-not-blank.py to prove the WebView actually rendered.
+      - name: Install Pillow
+        run: pip3 install --break-system-packages --quiet pillow
+
       # Simulator build: no signing, no certificates, same application code.
       - name: Build for simulator
         working-directory: ios/App
