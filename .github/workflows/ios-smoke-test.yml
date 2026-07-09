@@ -1,0 +1,97 @@
+name: iOS Smoke Test
+
+# Builds the app for the simulator and opens it on current iPhones.
+# No build goes to App Store Connect unless this is green, for the same reason
+# the Android smoke test exists: compiling is not testing.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit/branch to test'
+        required: false
+        default: ''
+
+jobs:
+  smoke:
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        device:
+          - 'iPhone 16 Pro'
+          - 'iPhone 15'
+          - 'iPhone SE (3rd generation)'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      - name: Select the newest Xcode
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Clone MsouWout website
+        run: git clone --depth 1 https://github.com/anirudhatalmale6-alt/msouwout.git ../msouwout-site
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: ios/App
+        run: pod install --repo-update
+
+      # Simulator build: no signing, no certificates, same application code.
+      - name: Build for simulator
+        working-directory: ios/App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -30
+
+      - name: Launch on ${{ matrix.device }}
+        env:
+          DEVICE: ${{ matrix.device }}
+          BUNDLE_ID: com.haitibiznis.msouwout
+        run: |
+          APP="$(find ios/App/build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -1)"
+          echo "Built app: $APP"
+          [ -n "$APP" ] || { echo "no App.app was produced"; exit 1; }
+          bash scripts/ios-smoke-test.sh "$APP"
+
+      - name: Upload screenshot and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-smoke-${{ strategy.job-index }}
+          path: |
+            screenshot-*.png
+            sim-log.txt
+          retention-days: 7
+          if-no-files-found: ignore
