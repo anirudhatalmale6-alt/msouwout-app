@@ -11,7 +11,12 @@
 set -uo pipefail
 
 APP_PATH="${1:?usage: ios-smoke-test.sh <path to App.app>}"
-BUNDLE_ID="${BUNDLE_ID:-com.haitibiznis.msouwout}"
+# Read the identifier out of the bundle rather than hardcoding it. iOS uses
+# com.msouwout.app while Android uses com.haitibiznis.msouwout, and guessing
+# wrong makes simctl fail with an unhelpful FBSOpenApplicationServiceError.
+BUNDLE_ID="${BUNDLE_ID:-$(plutil -extract CFBundleIdentifier raw -o - "$APP_PATH/Info.plist")}"
+[ -n "$BUNDLE_ID" ] || { echo "could not read CFBundleIdentifier from $APP_PATH" >&2; exit 1; }
+echo "Bundle id: $BUNDLE_ID"
 DEVICE="${DEVICE:?set DEVICE, e.g. 'iPhone 16 Pro'}"
 RUNTIME="${RUNTIME:-}"
 SETTLE_SECONDS="${SETTLE_SECONDS:-20}"

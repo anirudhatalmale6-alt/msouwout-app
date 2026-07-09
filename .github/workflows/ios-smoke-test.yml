@@ -78,7 +78,6 @@ jobs:
       - name: Launch on ${{ matrix.device }}
         env:
           DEVICE: ${{ matrix.device }}
-          BUNDLE_ID: com.haitibiznis.msouwout
         run: |
           APP="$(find ios/App/build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -1)"
           echo "Built app: $APP"
