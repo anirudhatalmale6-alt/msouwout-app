@@ -1,32 +1,34 @@
 name: iOS Submit for Review
 
-# Apple rejected 1.0 (7) under Guideline 2.1(a) on 2026-07-07: the reviewer could
-# not sign in. The binary was fine — the backend was down, so the demo login had
-# nothing to talk to. A month was lost to a submission that never had a chance.
+# Two separate things went wrong before, and this workflow exists to stop both.
 #
-# So this workflow refuses to submit until it has proved, against the live server,
-# that a reviewer can actually get in. Never submit into a broken backend again.
+# 1. Apple rejected 1.0 (7) under Guideline 2.1(a) on 2026-07-07: the reviewer
+#    could not sign in. The binary was fine — the backend was down, so the demo
+#    login had nothing to talk to. So we refuse to submit until we have proved,
+#    against the live server, that a reviewer can actually get in.
+#
+# 2. fastlane's submit_for_review uses the legacy appStoreVersionSubmissions API
+#    and died with "appStoreVersions with id '887285033' is not in valid state" —
+#    an ID that returns 404, because Apple moved to the reviewSubmissions flow.
+#    We drive that API directly instead.
 
 on:
   workflow_dispatch:
     inputs:
-      build_number:
-        description: 'Build number to attach and submit'
-        required: true
-        default: '7'
+      dry_run:
+        description: 'Check everything but do not actually submit'
+        type: boolean
+        default: false
 
 jobs:
   submit:
-    runs-on: macos-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
-
-      # This is the gate. Apple's reviewer types the demo phone into the app and
-      # the app asks the server. If the server can't answer, the review fails —
-      # which is exactly what happened last time. Check it before we spend another
-      # review cycle.
+      # The gate. Apple's reviewer types the demo phone into the app and the app
+      # asks the server. If the server can't answer, the review fails — which is
+      # exactly what happened last time. Never submit into a broken backend.
       - name: Prove a reviewer can sign in before we submit
         run: |
           set -euo pipefail
@@ -42,10 +44,10 @@ jobs:
           print("backend healthy, database connected")
           '
 
-          code="$(curl -s -o /tmp/driver.json -w '%{http_code}' -m 60 -X POST "$BASE_URL/api/drivers/login" \
+          code="$(curl -s -o /dev/null -w '%{http_code}' -m 60 -X POST "$BASE_URL/api/drivers/login" \
             -H 'Content-Type: application/json' -d '{"phone":"+50900000000","pin":"0000"}')"
           echo "driver demo login -> $code"
-          [ "$code" = "200" ] || { echo "The driver demo account does not work. Submitting would be rejected under 2.1(a) again."; exit 1; }
+          [ "$code" = "200" ] || { echo "The driver demo account does not work. This would be rejected under 2.1(a) again."; exit 1; }
 
           curl -sS -m 60 -X POST "$BASE_URL/api/rides/history" \
             -H 'Content-Type: application/json' -d '{"phone":"+50900000000"}' \
@@ -64,13 +66,120 @@ jobs:
           echo "All three demo flows work. Safe to submit."
 
       - name: Submit to App Review
-        working-directory: ios/App
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          TEAM_ID: ${{ secrets.TEAM_ID }}
-          SUBMIT_BUILD: ${{ inputs.build_number }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          gem install fastlane -NV --no-document
-          fastlane submit
+          pip install pyjwt cryptography requests --quiet
+          python3 - <<'PY'
+          import base64, json, os, sys, time
+          import jwt, requests
+
+          BUNDLE = "com.msouwout.app"
+          DRY = os.environ.get("DRY_RUN") == "true"
+
+          key = base64.b64decode(os.environ["ASC_KEY_CONTENT"]).decode()
+          tok = jwt.encode(
+              {"iss": os.environ["ASC_ISSUER_ID"], "exp": int(time.time()) + 900, "aud": "appstoreconnect-v1"},
+              key, algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"], "typ": "JWT"},
+          )
+          H = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+          B = "https://api.appstoreconnect.apple.com/v1"
+
+          def call(method, path, **kw):
+              r = requests.request(method, f"{B}/{path}", headers=H, timeout=60, **kw)
+              body = r.json() if r.text.strip() else {}
+              if r.status_code >= 400:
+                  for e in body.get("errors", []):
+                      print(f"  APPLE {e.get('status')} {e.get('code')}: {e.get('title')} — {e.get('detail')}")
+              return r.status_code, body
+
+          _, apps = call("GET", "apps", params={"filter[bundleId]": BUNDLE})
+          app_id = apps["data"][0]["id"]
+          print("App:", app_id, apps["data"][0]["attributes"]["name"])
+
+          # The version we intend to put in front of a reviewer.
+          _, vers = call("GET", f"apps/{app_id}/appStoreVersions", params={"limit": 5})
+          version = next((v for v in vers["data"]
+                          if v["attributes"]["appStoreState"] in
+                          ("PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED")), None)
+          if not version:
+              sys.exit("No editable version found: %s" %
+                       [(v["id"], v["attributes"]["appStoreState"]) for v in vers["data"]])
+          vid = version["id"]
+          print("Version:", vid, version["attributes"]["versionString"], version["attributes"]["appStoreState"])
+
+          # A version with no build attached cannot be reviewed.
+          code, build = call("GET", f"appStoreVersions/{vid}/build")
+          if code >= 400 or not build.get("data"):
+              sys.exit("This version has no build attached — nothing for the reviewer to run.")
+          print("Build attached:", build["data"]["id"])
+
+          # Confirm the reviewer is actually given the demo account. This is the
+          # field whose absence started the whole 2.1(a) mess.
+          code, detail = call("GET", f"appStoreVersions/{vid}/appStoreReviewDetail")
+          if code < 400 and detail.get("data"):
+              a = detail["data"]["attributes"]
+              print("Review login:", repr(a.get("demoAccountName")), "/", repr(a.get("demoAccountPassword")),
+                    "required:", a.get("demoAccountRequired"))
+              if not a.get("demoAccountName"):
+                  sys.exit("No demo account is set on the review detail. The reviewer would be locked out again.")
+          else:
+              sys.exit("Could not read the App Review detail; refusing to submit blind.")
+
+          # Reuse the submission Apple already has open, otherwise start one.
+          _, subs = call("GET", f"apps/{app_id}/reviewSubmissions",
+                         params={"filter[state]": "READY_FOR_REVIEW", "limit": 10})
+          sub = subs["data"][0] if subs.get("data") else None
+
+          if sub:
+              print("Reusing open submission:", sub["id"])
+          else:
+              code, created = call("POST", "reviewSubmissions", data=json.dumps({
+                  "data": {"type": "reviewSubmissions",
+                           "attributes": {"platform": "IOS"},
+                           "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}
+              }))
+              if code >= 400:
+                  sys.exit("Could not create a review submission.")
+              sub = created["data"]
+              print("Created submission:", sub["id"])
+
+          sub_id = sub["id"]
+
+          # The submission must actually contain the version.
+          _, items = call("GET", f"reviewSubmissions/{sub_id}/items", params={"limit": 10})
+          has_version = any(
+              (i.get("relationships", {}).get("appStoreVersion", {}).get("data") or {}).get("id") == vid
+              for i in items.get("data", [])
+          )
+          if has_version:
+              print("Version already attached to the submission.")
+          else:
+              code, _ = call("POST", "reviewSubmissionItems", data=json.dumps({
+                  "data": {"type": "reviewSubmissionItems",
+                           "relationships": {
+                               "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": sub_id}},
+                               "appStoreVersion": {"data": {"type": "appStoreVersions", "id": vid}}}}
+              }))
+              if code >= 400:
+                  sys.exit("Could not attach the version to the submission.")
+              print("Attached version to the submission.")
+
+          if DRY:
+              print("\nDRY RUN — everything checks out, but not submitting.")
+              sys.exit(0)
+
+          code, done = call("PATCH", f"reviewSubmissions/{sub_id}", data=json.dumps({
+              "data": {"type": "reviewSubmissions", "id": sub_id, "attributes": {"submitted": True}}
+          }))
+          if code >= 400:
+              sys.exit("Apple refused the submission.")
+
+          state = done["data"]["attributes"].get("state")
+          print("\nSubmitted. State is now:", state)
+          if state not in ("WAITING_FOR_REVIEW", "IN_REVIEW", "SUBMITTED"):
+              sys.exit("Unexpected state after submitting: %s" % state)
+          PY
