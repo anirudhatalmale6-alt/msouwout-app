@@ -1,0 +1,76 @@
+name: iOS Submit for Review
+
+# Apple rejected 1.0 (7) under Guideline 2.1(a) on 2026-07-07: the reviewer could
+# not sign in. The binary was fine — the backend was down, so the demo login had
+# nothing to talk to. A month was lost to a submission that never had a chance.
+#
+# So this workflow refuses to submit until it has proved, against the live server,
+# that a reviewer can actually get in. Never submit into a broken backend again.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Build number to attach and submit'
+        required: true
+        default: '7'
+
+jobs:
+  submit:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # This is the gate. Apple's reviewer types the demo phone into the app and
+      # the app asks the server. If the server can't answer, the review fails —
+      # which is exactly what happened last time. Check it before we spend another
+      # review cycle.
+      - name: Prove a reviewer can sign in before we submit
+        run: |
+          set -euo pipefail
+          BASE_URL=https://msouwout-backend.onrender.com
+
+          health="$(curl -sS --retry 5 --retry-delay 10 --retry-all-errors -m 60 "$BASE_URL/api/health")"
+          echo "health: $health"
+          printf '%s' "$health" | python3 -c '
+          import json, sys
+          h = json.load(sys.stdin)
+          if h.get("status") != "ok" or not h.get("db"):
+              sys.exit("backend is not healthy, refusing to submit: %s" % (h,))
+          print("backend healthy, database connected")
+          '
+
+          code="$(curl -s -o /tmp/driver.json -w '%{http_code}' -m 60 -X POST "$BASE_URL/api/drivers/login" \
+            -H 'Content-Type: application/json' -d '{"phone":"+50900000000","pin":"0000"}')"
+          echo "driver demo login -> $code"
+          [ "$code" = "200" ] || { echo "The driver demo account does not work. Submitting would be rejected under 2.1(a) again."; exit 1; }
+
+          curl -sS -m 60 -X POST "$BASE_URL/api/rides/history" \
+            -H 'Content-Type: application/json' -d '{"phone":"+50900000000"}' \
+            | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)
+          if not d.get("total_rides"):
+              sys.exit("the demo customer has no rides, so the customer dashboard will not open: %s" % (d,))
+          print("demo customer has %d rides" % d["total_rides"])
+          '
+
+          code="$(curl -s -o /dev/null -w '%{http_code}' -m 60 "$BASE_URL/api/logistics/loads/MW-DEMO/track")"
+          echo "MW-DEMO tracking -> $code"
+          [ "$code" = "200" ] || { echo "MW-DEMO tracking is broken; the reviewer is told to test that code."; exit 1; }
+
+          echo "All three demo flows work. Safe to submit."
+
+      - name: Submit to App Review
+        working-directory: ios/App
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          SUBMIT_BUILD: ${{ inputs.build_number }}
+        run: |
+          gem install fastlane -NV --no-document
+          fastlane submit

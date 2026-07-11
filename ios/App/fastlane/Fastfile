@@ -63,6 +63,14 @@ platform :ios do
   desc "Attach an already-uploaded build, set App Review Information, and submit for review"
   lane :submit do
     review_notes = <<~NOTES
+      RESPONSE TO THE PREVIOUS REJECTION (Guideline 2.1(a), submission b109102d-5aef-4826-a790-20f6a548952a, reviewed July 7 on iPad Pro 11-inch):
+
+      You reported that you were unable to access all or part of the app. You were correct, and the cause was on our side: the app's backend server was suffering an outage on July 7, so the demo sign-in could not be validated and the login simply failed. The binary itself was not changed.
+
+      The outage is resolved and the demo accounts below have been verified working end to end. We would be grateful if you would retry the sign-in.
+
+      ---
+
       MsouWout serves riders, drivers, and cargo/logistics shippers in Haiti. All sign-in and registration now happen INSIDE the app.
 
       Open the logins by tapping the "Konekte / Login" button at the top right of the home screen, then choose an account type:
