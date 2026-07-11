@@ -117,17 +117,70 @@ jobs:
               sys.exit("This version has no build attached — nothing for the reviewer to run.")
           print("Build attached:", build["data"]["id"])
 
-          # Confirm the reviewer is actually given the demo account. This is the
-          # field whose absence started the whole 2.1(a) mess.
+          # The reviewer must be handed the demo account. When 1.0 (7) was rejected
+          # under 2.1(a) — "we need a way to verify all app features, typically by
+          # providing a demo account" — this was empty and demoAccountRequired was
+          # false, so App Review was never given a way in at all. Set it every time
+          # rather than trusting that it stuck.
+          REVIEW_NOTES = (
+              "RESPONSE TO THE PREVIOUS REJECTION (Guideline 2.1(a), submission "
+              "b109102d-5aef-4826-a790-20f6a548952a, reviewed July 7 on iPad Pro 11-inch):\n\n"
+              "You reported that you were unable to access all or part of the app. You were right, "
+              "and the cause was on our side. Two things were wrong, and both are fixed:\n"
+              "1) No demo account had been supplied to App Review. It is now provided below.\n"
+              "2) The app's backend server was suffering an outage on the day of review, so sign-in "
+              "could not be validated. The server is restored and the demo accounts below have been "
+              "verified working end to end.\n\n"
+              "The binary itself is unchanged.\n\n"
+              "---\n\n"
+              "MsouWout serves riders, drivers, and cargo/logistics shippers in Haiti. All sign-in and "
+              "registration happen INSIDE the app.\n\n"
+              "Tap \"Konekte / Login\" at the top right of the home screen, then choose an account type:\n\n"
+              "1) CUSTOMER (\"Kliyan / Pasaje\"): phone 0000 0000 -> ride history, and an in-app "
+              "\"Delete my account\" option.\n"
+              "2) DRIVER (\"Chofe\"): phone 0000 0000, PIN 0000 -> driver dashboard, verified status, "
+              "ride history, and \"Delete my account\".\n"
+              "3) LOGISTICS (\"Logistics\"): tap \"Track Shipment\" and enter code MW-DEMO for live map "
+              "tracking of a shipment in transit.\n\n"
+              "The Sign-In field provided is the driver demo (0000 0000 / 0000). Ride requests are "
+              "finalized via a WhatsApp handoff, which is standard for this market. Thank you for the review."
+          )
+          CONTACT = {
+              "contactFirstName": "Jeffery",
+              "contactLastName": "Boyard",
+              "contactPhone": "+50946859702",
+              "contactEmail": "myplopplop69@gmail.com",
+              "demoAccountName": "0000 0000",
+              "demoAccountPassword": "0000",
+              "demoAccountRequired": True,
+              "notes": REVIEW_NOTES,
+          }
+
           code, detail = call("GET", f"appStoreVersions/{vid}/appStoreReviewDetail")
           if code < 400 and detail.get("data"):
               a = detail["data"]["attributes"]
-              print("Review login:", repr(a.get("demoAccountName")), "/", repr(a.get("demoAccountPassword")),
-                    "required:", a.get("demoAccountRequired"))
-              if not a.get("demoAccountName"):
-                  sys.exit("No demo account is set on the review detail. The reviewer would be locked out again.")
+              print("Review login was:", repr(a.get("demoAccountName")), "required:", a.get("demoAccountRequired"))
+              code, _ = call("PATCH", f"appStoreReviewDetails/{detail['data']['id']}", data=json.dumps({
+                  "data": {"type": "appStoreReviewDetails", "id": detail["data"]["id"], "attributes": CONTACT}
+              }))
+              if code >= 400:
+                  sys.exit("Could not set the demo account on the review detail.")
           else:
-              sys.exit("Could not read the App Review detail; refusing to submit blind.")
+              code, created = call("POST", "appStoreReviewDetails", data=json.dumps({
+                  "data": {"type": "appStoreReviewDetails", "attributes": CONTACT,
+                           "relationships": {"appStoreVersion": {
+                               "data": {"type": "appStoreVersions", "id": vid}}}}
+              }))
+              if code >= 400:
+                  sys.exit("Could not create the review detail.")
+
+          # Read it back. Trusting the write is how we got here.
+          code, detail = call("GET", f"appStoreVersions/{vid}/appStoreReviewDetail")
+          a = detail["data"]["attributes"]
+          print("Review login now:", repr(a.get("demoAccountName")), "/", repr(a.get("demoAccountPassword")),
+                "required:", a.get("demoAccountRequired"))
+          if not a.get("demoAccountName") or not a.get("demoAccountRequired"):
+              sys.exit("The demo account did not stick. The reviewer would be locked out again.")
 
           # Reuse the submission Apple already has open, otherwise start one.
           _, subs = call("GET", f"apps/{app_id}/reviewSubmissions",
