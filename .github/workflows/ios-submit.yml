@@ -101,13 +101,28 @@ jobs:
           print("App:", app_id, apps["data"][0]["attributes"]["name"])
 
           # The version we intend to put in front of a reviewer.
+          #
+          # READY_FOR_REVIEW belongs in this list: attaching a version to a review
+          # submission moves it out of PREPARE_FOR_SUBMISSION, so a re-run after a
+          # dry run legitimately finds it in that state with the submit not yet sent.
+          ALREADY_SUBMITTED = ("WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_DEVELOPER_RELEASE",
+                               "PROCESSING_FOR_APP_STORE", "READY_FOR_SALE")
+          SUBMITTABLE = ("PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "DEVELOPER_REJECTED",
+                         "REJECTED", "METADATA_REJECTED")
+
           _, vers = call("GET", f"apps/{app_id}/appStoreVersions", params={"limit": 5})
+          states = [(v["id"], v["attributes"]["versionString"], v["attributes"]["appStoreState"])
+                    for v in vers["data"]]
+
+          done = [s for s in states if s[2] in ALREADY_SUBMITTED]
+          if done and not any(s[2] in SUBMITTABLE for s in states):
+              print("Already with Apple, nothing to do:", done)
+              sys.exit(0)
+
           version = next((v for v in vers["data"]
-                          if v["attributes"]["appStoreState"] in
-                          ("PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED")), None)
+                          if v["attributes"]["appStoreState"] in SUBMITTABLE), None)
           if not version:
-              sys.exit("No editable version found: %s" %
-                       [(v["id"], v["attributes"]["appStoreState"]) for v in vers["data"]])
+              sys.exit("No submittable version found: %s" % states)
           vid = version["id"]
           print("Version:", vid, version["attributes"]["versionString"], version["attributes"]["appStoreState"])
 
