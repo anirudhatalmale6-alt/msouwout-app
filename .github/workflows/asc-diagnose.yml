@@ -1,0 +1,69 @@
+name: ASC Diagnose
+
+# Apple refused the submission with "appStoreVersions ... is not in valid state.
+# This resource cannot be reviewed, please check associated errors to see why."
+# It does not say which errors. Ask the API directly instead of guessing.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask App Store Connect what is blocking the version
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          pip install pyjwt cryptography requests --quiet
+          python3 - <<'PY'
+          import base64, json, os, time
+          import jwt, requests
+
+          key = base64.b64decode(os.environ["ASC_KEY_CONTENT"]).decode()
+          tok = jwt.encode(
+              {"iss": os.environ["ASC_ISSUER_ID"], "exp": int(time.time()) + 900, "aud": "appstoreconnect-v1"},
+              key, algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"], "typ": "JWT"},
+          )
+          H = {"Authorization": f"Bearer {tok}"}
+          B = "https://api.appstoreconnect.apple.com/v1"
+
+          def get(path, **params):
+              r = requests.get(f"{B}/{path}", headers=H, params=params, timeout=60)
+              try:
+                  return r.status_code, r.json()
+              except Exception:
+                  return r.status_code, r.text
+
+          _, apps = get("apps", **{"filter[bundleId]": "com.msouwout.app"})
+          app = apps["data"][0]
+          app_id = app["id"]
+          print("APP", app_id, app["attributes"]["name"])
+
+          code, ver = get("appStoreVersions/887285033")
+          print("\n=== appStoreVersion 887285033 ===", code)
+          print(json.dumps(ver.get("data", {}).get("attributes", {}), indent=2))
+
+          print("\n=== all versions ===")
+          _, vers = get(f"apps/{app_id}/appStoreVersions", **{"limit": 5})
+          for v in vers.get("data", []):
+              a = v["attributes"]
+              print(" ", v["id"], a.get("versionString"), a.get("appStoreState"), a.get("appVersionState"))
+
+          print("\n=== age rating declaration ===")
+          code, ar = get(f"apps/{app_id}/ageRatingDeclaration")
+          print("status", code)
+          attrs = ar.get("data", {}).get("attributes", {}) if isinstance(ar, dict) else {}
+          if not attrs:
+              print(json.dumps(ar, indent=2)[:2000])
+          for k, v in sorted(attrs.items()):
+              flag = "  <-- NOT ANSWERED" if v is None else ""
+              print(f"  {k} = {v}{flag}")
+
+          print("\n=== app info / review submission ===")
+          code, subs = get(f"apps/{app_id}/reviewSubmissions", **{"limit": 5})
+          for s in subs.get("data", []) if isinstance(subs, dict) else []:
+              print(" ", s["id"], s["attributes"].get("state"), s["attributes"].get("submitted"))
+          PY
