@@ -217,23 +217,21 @@ jobs:
 
           sub_id = sub["id"]
 
-          # The submission must actually contain the version.
-          _, items = call("GET", f"reviewSubmissions/{sub_id}/items", params={"limit": 10})
-          has_version = any(
-              (i.get("relationships", {}).get("appStoreVersion", {}).get("data") or {}).get("id") == vid
-              for i in items.get("data", [])
-          )
-          if has_version:
-              print("Version already attached to the submission.")
+          # The submission must actually contain the version. Rather than inspect the
+          # item list — whose relationships aren't returned by default — just try to
+          # attach it. Apple answers 409 "already added" when it is already there,
+          # which is a success for our purposes, not a failure.
+          code, _ = call("POST", "reviewSubmissionItems", data=json.dumps({
+              "data": {"type": "reviewSubmissionItems",
+                       "relationships": {
+                           "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": sub_id}},
+                           "appStoreVersion": {"data": {"type": "appStoreVersions", "id": vid}}}}
+          }))
+          if code == 409:
+              print("Version was already attached to the submission.")
+          elif code >= 400:
+              sys.exit("Could not attach the version to the submission.")
           else:
-              code, _ = call("POST", "reviewSubmissionItems", data=json.dumps({
-                  "data": {"type": "reviewSubmissionItems",
-                           "relationships": {
-                               "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": sub_id}},
-                               "appStoreVersion": {"data": {"type": "appStoreVersions", "id": vid}}}}
-              }))
-              if code >= 400:
-                  sys.exit("Could not attach the version to the submission.")
               print("Attached version to the submission.")
 
           if DRY:
