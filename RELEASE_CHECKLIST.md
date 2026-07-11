@@ -62,7 +62,13 @@ Not "the screen opens" — the flow completes.
 ### Apple
 
 - [ ] Demo credentials filled in on the App Review Information screen, and they
-      actually work on the submitted build.
+      actually work on the submitted build. **Read them back from the API — do not
+      trust that a fastlane lane set them.** `demoAccountRequired` must be `true`
+      and `demoAccountName` non-empty, or the reviewer has no way into the app and
+      the rejection is automatic. This alone cost a month.
+- [ ] The backend is up and the demo login works *right now*. An app whose server
+      is down looks broken to a reviewer, and they reject it under 2.1(a) rather
+      than waiting for it to come back. `ios-submit.yml` enforces this.
 - [ ] No API is called that the app is not entitled to use. If the binary calls
       `registerForRemoteNotifications()` there **must** be an `aps-environment`
       entitlement, or review rejects it under Guideline 2.1 App Completeness.
@@ -97,6 +103,9 @@ Every bug that reached the client goes here, with the check that now prevents it
 | 2026-07-09 | GPS never worked on tracking/logistics screens | Assumed the Geolocation plugin declared its own permissions. It ships an empty manifest. | §2 permission audit against bundled plugins |
 | 2026-07-09 | msouwout-backend down; the client found it, not us | Nothing was monitoring anything | `msouwout-uptime` repo: probes every 15 min, opens an issue on outage |
 | 2026-07-09 | The new uptime monitor reported a green run during a real outage | `script \| tee` returns tee's exit code, hiding the failure | `set -o pipefail` in any workflow step that pipes a failing script |
+| 2026-07-11 | Apple 2.1(a) for a month: App Review was never given a demo account (`demoAccountName` empty, `demoAccountRequired` false) | Nobody ever read back what App Store Connect actually stored — we assumed setting it in a fastlane lane meant it was there | `ios-submit.yml` sets the demo account via the API, reads it back, and refuses to submit if it did not stick |
+| 2026-07-11 | The same rejection was also caused by the dead backend: the demo login had no server to talk to on review day | We submitted to Apple without checking that the app's own API was up | `ios-submit.yml` will not submit until the driver login, customer history and MW-DEMO tracking all answer against production |
+| 2026-07-11 | Demo accounts vanished when the database was recreated, so a retry would have been rejected identically | Demo data lived only as hand-made rows in prod | `seed-demo.sql` runs on every boot; `deploy.yml` fails if a reviewer could not log in |
 | 2026-07-09 | Backend down for weeks: Render deleted the free Postgres 30 days after creation | Nothing checked that the database still existed | Paid DB plan in `render.yaml`; deploy gate asserts `/api/health` reports `db: true` |
 | 2026-07-09 | Five commits, incl. a production fix, never deployed | Render's dashboard claimed "Auto-Deploy: yes" while receiving no push events | `deploy.yml` triggers the deploy from CI and fails if it doesn't reach `live` |
 | 2026-07-07 | Apple 4.0: "Become a Driver" opened Safari | External links not checked before submitting | §3 in-app link check |
