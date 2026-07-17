@@ -46,9 +46,9 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>MsouWout needs your location to find rides near you and show your pickup point to drivers.</string>
+	<string>MsouWout bezwen kote ou ye pou jwenn chofè tou pre ou. / MsouWout a besoin de votre position pour trouver des chauffeurs près de vous. / MsouWout needs your location to find rides near you.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>MsouWout uses your location to track your ride in real-time and ensure driver safety.</string>
+	<string>MsouWout sèvi ak kote ou ye pou swiv kous ou an dirèk epi asire sekirite ou. / MsouWout utilise votre position pour suivre votre course en temps réel. / MsouWout uses your location to track your ride in real-time.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>MsouWout needs camera access for driver vehicle condition photos during registration.</string>
 	<key>NSMicrophoneUsageDescription</key>
